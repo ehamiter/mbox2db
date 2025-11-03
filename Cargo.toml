@@ -1,0 +1,31 @@
+[package]
+name = "mbox2db"
+version = "0.1.0"
+edition = "2021"
+authors = ["Eric Hamiter"]
+description = "A fast, simple tool to convert large mbox email archives into optimized SQLite databases"
+license = "MIT"
+repository = "https://github.com/ehamiter/mbox2db"
+homepage = "https://github.com/ehamiter/mbox2db"
+readme = "README.md"
+keywords = ["mbox", "email", "sqlite", "gmail", "archive"]
+categories = ["command-line-utilities", "email", "database"]
+
+[[bin]]
+name = "mbox2db"
+path = "src/main.rs"
+
+[dependencies]
+mailparse = "0.15"
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = "0.4"
+indicatif = "0.17"
+regex = "1.10"
+once_cell = "1.19"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
