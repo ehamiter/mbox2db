@@ -1,6 +1,6 @@
 [package]
 name = "mbox2db"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Eric Hamiter"]
 description = "A fast, simple tool to convert large mbox email archives into optimized SQLite databases"
