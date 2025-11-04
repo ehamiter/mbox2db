@@ -2,34 +2,48 @@
 
 A fast, simple Rust-based tool to convert large mbox email archives into optimized SQLite databases. Built for handling gigabyte-sized Gmail exports with maximum performance.
 
-## Features
-
-- **Lightning Fast**: Single-transaction writes with optimized SQLite settings (WAL mode, memory mapping, large cache)
-- **Smart Filtering**: Automatically excludes Spam and Trash by default (configurable)
-- **Auto-Incrementing Filenames**: Creates dated databases (e.g., `2025-11-03-emails.db`) that auto-increment to avoid overwriting
-- **Robust Date Parsing**: Handles 20+ malformed date formats commonly found in email archives
-- **Progress Indicator**: Modern spinner shows real-time progress and skipped email counts
-- **Full-Text Search Ready**: Creates indexes on common fields for instant queries
-
 ## Installation
 
 ```bash
-# Build release binary
-cargo build --release
-
-# Binary will be at ./target/release/mbox2db
+cargo install mbox2db
 ```
 
 ## Quick Start
 
 ```bash
 # Convert mbox to SQLite (excludes Spam/Trash by default)
-./target/release/mbox2db all-mail.mbox
+mbox2db all-mail.mbox
 
-# Output: exports/2025-11-03-emails.db
+# Output: 2025-11-04-emails.db (in current directory)
 ```
 
-## Usage
+## Basic SQL Queries
+
+```sql
+-- Count all emails
+SELECT COUNT(*) FROM emails;
+
+-- Get most recent emails
+SELECT subject, from_addr, date_parsed
+FROM emails
+ORDER BY date_parsed DESC
+LIMIT 10;
+
+-- Search subject lines
+SELECT subject, date_parsed, from_addr
+FROM emails
+WHERE subject LIKE '%keyword%'
+ORDER BY date_parsed DESC;
+
+-- Count emails by year
+SELECT strftime('%Y', date_parsed) as year, COUNT(*)
+FROM emails
+WHERE date_parsed IS NOT NULL
+GROUP BY year
+ORDER BY year;
+```
+
+## Usage Options
 
 ```
 mbox2db [OPTIONS] <INPUT>
@@ -46,41 +60,72 @@ Options:
   -h, --help                         Print help
 ```
 
+## How to Export Gmail to mbox
+
+1. Go to [Google Takeout](https://takeout.google.com/)
+2. Deselect all products, then select **Mail**
+3. Click "All Mail data included" and select specific labels if desired
+4. Choose "Export once" and "Send download link via email"
+5. Select file format: `.zip` or `.tgz`
+6. Click "Create export"
+7. Download and extract the `.mbox` file
+
+<details>
+<summary><b>Technical Details</b></summary>
+
+## Features
+
+- **Lightning Fast**: Single-transaction writes with optimized SQLite settings (WAL mode, memory mapping, large cache)
+- **Smart Filtering**: Automatically excludes Spam and Trash by default (configurable)
+- **Auto-Incrementing Filenames**: Creates dated databases (e.g., `2025-11-03-emails.db`) that auto-increment to avoid overwriting
+- **Robust Date Parsing**: Handles 20+ malformed date formats commonly found in email archives
+- **Progress Indicator**: Modern spinner shows real-time progress and skipped email counts
+- **Full-Text Search Ready**: Creates indexes on common fields for instant queries
+
+## Building from Source
+
+```bash
+# Build release binary
+cargo build --release
+
+# Binary will be at ./target/release/mbox2db
+```
+
 ## Examples
 
 ### Basic Conversion (Default Behavior)
 
 ```bash
 # Filters out Spam/Trash, creates dated output file
-./target/release/mbox2db all-mail.mbox
-# Output: exports/2025-11-03-emails.db
+mbox2db all-mail.mbox
+# Output: 2025-11-04-emails.db
 
 # Running again on the same day creates incremented file
-./target/release/mbox2db all-mail.mbox
-# Output: exports/2025-11-03-emails-0001.db
+mbox2db all-mail.mbox
+# Output: 2025-11-04-emails-0001.db
 ```
 
 ### Include Spam/Trash
 
 ```bash
 # Include spam emails only
-./target/release/mbox2db all-mail.mbox --include-spam
+mbox2db all-mail.mbox --include-spam
 
 # Include trash emails only
-./target/release/mbox2db all-mail.mbox --include-trash
+mbox2db all-mail.mbox --include-trash
 
 # Include both spam and trash
-./target/release/mbox2db all-mail.mbox --include-spam-and-trash
+mbox2db all-mail.mbox --include-spam-and-trash
 ```
 
 ### Custom Output Path
 
 ```bash
 # Specify custom output location
-./target/release/mbox2db all-mail.mbox -o ~/Documents/my-emails.db
+mbox2db all-mail.mbox -o ~/Documents/my-emails.db
 
 # Overwrite existing file (destructive mode)
-./target/release/mbox2db all-mail.mbox -d -o exports/emails.db
+mbox2db all-mail.mbox -d -o emails.db
 ```
 
 ## Database Schema
@@ -110,23 +155,7 @@ CREATE INDEX idx_date_parsed ON emails(date_parsed);
 CREATE INDEX idx_subject ON emails(subject);
 ```
 
-## Querying Your Database
-
-### Basic Queries
-
-```sql
--- Count all emails
-SELECT COUNT(*) FROM emails;
-
--- Count emails from specific sender
-SELECT COUNT(*) FROM emails WHERE from_addr LIKE '%user@example.com%';
-
--- Get most recent emails
-SELECT subject, from_addr, date_parsed 
-FROM emails 
-ORDER BY date_parsed DESC 
-LIMIT 10;
-```
+## More SQL Query Examples
 
 ### Search by Date
 
@@ -136,29 +165,19 @@ SELECT * FROM emails
 WHERE date_parsed LIKE '2025%'
 ORDER BY date_parsed DESC;
 
--- Count emails by year
-SELECT strftime('%Y', date_parsed) as year, COUNT(*) 
-FROM emails 
-WHERE date_parsed IS NOT NULL
-GROUP BY year 
-ORDER BY year;
-
 -- Get emails from date range
 SELECT subject, date_parsed, from_addr 
 FROM emails 
 WHERE date_parsed BETWEEN '2020-01-01' AND '2020-12-31'
 ORDER BY date_parsed DESC;
+
+-- Count emails from specific sender
+SELECT COUNT(*) FROM emails WHERE from_addr LIKE '%user@example.com%';
 ```
 
 ### Full-Text Search
 
 ```sql
--- Search subject lines
-SELECT subject, date_parsed, from_addr 
-FROM emails 
-WHERE subject LIKE '%keyword%'
-ORDER BY date_parsed DESC;
-
 -- Search email body
 SELECT subject, from_addr, date_parsed 
 FROM emails 
@@ -194,15 +213,7 @@ ORDER BY date_parsed;
   - Named timezones (`Eastern Daylight Time`, `GMT-0700`)
   - Various date formats (`7/19/2005 8:11:52 AM`)
 
-## How to Export Gmail to mbox
-
-1. Go to [Google Takeout](https://takeout.google.com/)
-2. Deselect all products, then select **Mail**
-3. Click "All Mail data included" and select specific labels if desired
-4. Choose "Export once" and "Send download link via email"
-5. Select file format: `.zip` or `.tgz`
-6. Click "Create export"
-7. Download and extract the `All mail Including Spam and Trash.mbox` file
+</details>
 
 ## License
 

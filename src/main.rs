@@ -17,7 +17,7 @@ struct Cli {
     #[arg(help = "Input mbox file path")]
     input: PathBuf,
 
-    #[arg(short, long, help = "Output database file path (default: exports/YYYY-MM-DD-emails.db)")]
+    #[arg(short, long, help = "Output database file path (default: YYYY-MM-DD-emails.db)")]
     output: Option<PathBuf>,
 
     #[arg(short, long, help = "Overwrite existing database instead of auto-incrementing filename")]
@@ -140,8 +140,10 @@ fn extract_body(parsed: &mailparse::ParsedMail, record: &mut EmailRecord) {
 
 fn create_database(db_path: &PathBuf) -> Result<Connection> {
     if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+        }
     }
 
     let conn = Connection::open(db_path)
@@ -496,34 +498,27 @@ fn process_mbox(input_path: &PathBuf, output_path: &PathBuf, include_spam: bool,
 
 fn get_output_path(cli_output: Option<PathBuf>, destructive: bool) -> PathBuf {
     if let Some(path) = cli_output {
-        // User specified output path - use it directly
         return path;
     }
     
     if destructive {
-        // Destructive mode - use old default
-        return PathBuf::from("exports/emails.db");
+        return PathBuf::from("emails.db");
     }
     
-    // Default mode - use dated filename with auto-increment
     let today = Local::now().format("%Y-%m-%d").to_string();
-    let base_path = PathBuf::from("exports");
     
-    // Try the base filename first
-    let base_file = base_path.join(format!("{}-emails.db", today));
+    let base_file = PathBuf::from(format!("{}-emails.db", today));
     if !base_file.exists() {
         return base_file;
     }
     
-    // Find next available counter
     for counter in 1..10000 {
-        let numbered_file = base_path.join(format!("{}-emails-{:04}.db", today, counter));
+        let numbered_file = PathBuf::from(format!("{}-emails-{:04}.db", today, counter));
         if !numbered_file.exists() {
             return numbered_file;
         }
     }
     
-    // Fallback (should never happen)
     base_file
 }
 
